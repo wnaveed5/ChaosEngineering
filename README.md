@@ -517,8 +517,7 @@ kubectl port-forward svc/status-dashboard 3001:80 -n chaos-platform &
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes<img width="1470" height="696" alt="Screenshot 2025-07-31 at 3 04 50 PM" src="https://github.com/user-attachments/assets/072d07f4-da46-4ec5-b8c3-7fb224aad49c" />
-
+3. Make your changes
 4. Add tests
 5. Submit a pull request
 
