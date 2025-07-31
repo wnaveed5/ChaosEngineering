@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: slo-sli-monitoring
+  namespace: gitops
+  labels:
+    app: slo-sli
+    environment: production
+    project: chaos-engineering
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/chaos-engineering-platform
+    targetRevision: HEAD
+    path: observability/slo-sli
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+  revisionHistoryLimit: 10
+  # Health checks for SLO/SLI monitoring
+  health:
+    status: Healthy
+    message: "SLO/SLI monitoring is healthy"
+  # Sync status
+  sync:
+    status: Synced
+    revision: HEAD
+    resources:
+      - kind: ServiceMonitor
+        name: chaos-platform-slo
+        status: Synced
+      - kind: PrometheusRule
+        name: slo-rules
+        status: Synced
+      - kind: PrometheusRule
+        name: slo-alerts
+        status: Synced 

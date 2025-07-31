@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaos-platform
+  labels:
+    name: chaos-platform
+    environment: production
+    project: chaos-engineering
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    environment: production
+    project: chaos-engineering
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaos-engineering
+  labels:
+    name: chaos-engineering
+    environment: production
+    project: chaos-engineering
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitops
+  labels:
+    name: gitops
+    environment: production
+    project: chaos-engineering 

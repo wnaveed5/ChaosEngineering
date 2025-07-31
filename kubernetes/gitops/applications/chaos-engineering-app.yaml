@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chaos-engineering
+  namespace: gitops
+  labels:
+    app: chaos-engineering
+    environment: production
+    project: chaos-engineering
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/chaos-engineering-platform
+    targetRevision: HEAD
+    path: kubernetes/chaos
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chaos-engineering
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+  revisionHistoryLimit: 10
+  # Health checks for chaos engineering
+  health:
+    status: Healthy
+    message: "Chaos engineering stack is healthy"
+  # Sync status
+  sync:
+    status: Synced
+    revision: HEAD
+    resources:
+      - kind: ChaosEngine
+        name: pod-kill-chaos
+        status: Synced
+      - kind: ChaosEngine
+        name: network-chaos
+        status: Synced
+      - kind: ChaosEngine
+        name: cpu-chaos
+        status: Synced
+      - kind: Service
+        name: litmus-chaos-service
+        status: Synced 

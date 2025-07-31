@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: chaos-platform
+data:
+  # Frontend configuration
+  REACT_APP_API_URL: "http://api-gateway-service:3001"
+  REACT_APP_MONITORING_URL: "http://grafana-service:3000"
+  
+  # API Gateway configuration
+  USER_SERVICE_URL: "http://user-service:3002"
+  ORDER_SERVICE_URL: "http://order-service:3003"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:3004"
+  
+  # Database configuration
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "chaos_platform"
+  DB_USER: "postgres"
+  
+  # Redis configuration
+  REDIS_URL: "redis://redis-service:6379"
+  
+  # Monitoring configuration
+  PROMETHEUS_URL: "http://prometheus-service:9090"
+  ALERTMANAGER_URL: "http://alertmanager-service:9093"
+  
+  # Chaos Engineering configuration
+  LITMUS_CHAOS_URL: "http://litmus-chaos-service:9091"
+  CHAOS_EXPERIMENT_TIMEOUT: "300"
+  CHAOS_RECOVERY_TIMEOUT: "600"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-config
+  namespace: monitoring
+data:
+  # Prometheus configuration
+  PROMETHEUS_RETENTION_DAYS: "15"
+  PROMETHEUS_STORAGE_SIZE: "10Gi"
+  
+  # Grafana configuration
+  GRAFANA_ADMIN_PASSWORD: "admin"
+  GRAFANA_SECURITY_ADMIN_PASSWORD: "admin"
+  
+  # AlertManager configuration
+  ALERTMANAGER_SLACK_WEBHOOK: ""
+  ALERTMANAGER_EMAIL_SMTP_HOST: ""
+  ALERTMANAGER_EMAIL_SMTP_PORT: "587"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos-config
+  namespace: chaos-engineering
+data:
+  # LitmusChaos configuration
+  LITMUS_CHAOS_OPERATOR_NAMESPACE: "litmus"
+  LITMUS_CHAOS_EXPERIMENT_NAMESPACE: "chaos-engineering"
+  
+  # Chaos experiment configurations
+  POD_KILL_TIMEOUT: "300"
+  NETWORK_CHAOS_TIMEOUT: "600"
+  CPU_CHAOS_TIMEOUT: "300"
+  MEMORY_CHAOS_TIMEOUT: "300"
+  
+  # Recovery configurations
+  AUTO_RECOVERY_ENABLED: "true"
+  RECOVERY_TIMEOUT: "600"
+  MAX_RECOVERY_ATTEMPTS: "3" 

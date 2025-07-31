@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: gitops
+data:
+  # RBAC policy configuration
+  policy.default: role:readonly
+  
+  # Admin role for chaos platform
+  policy.csv: |
+    p, role:chaos-platform-admin, applications, *, chaos-platform/*, allow
+    p, role:chaos-platform-admin, repositories, *, chaos-platform/*, allow
+    p, role:chaos-platform-admin, clusters, *, chaos-platform/*, allow
+    p, role:chaos-platform-admin, projects, *, chaos-platform/*, allow
+    p, role:chaos-platform-admin, logs, *, chaos-platform/*, allow
+    p, role:chaos-platform-admin, exec, *, chaos-platform/*, allow
+    
+    # Developer role
+    p, role:chaos-platform-developer, applications, get, chaos-platform/*, allow
+    p, role:chaos-platform-developer, applications, sync, chaos-platform/*, allow
+    p, role:chaos-platform-developer, applications, update, chaos-platform/*, allow
+    p, role:chaos-platform-developer, repositories, get, chaos-platform/*, allow
+    p, role:chaos-platform-developer, logs, get, chaos-platform/*, allow
+    
+    # Viewer role
+    p, role:chaos-platform-viewer, applications, get, chaos-platform/*, allow
+    p, role:chaos-platform-viewer, repositories, get, chaos-platform/*, allow
+    p, role:chaos-platform-viewer, logs, get, chaos-platform/*, allow
+    
+    # Monitoring role
+    p, role:chaos-platform-monitoring, applications, get, monitoring/*, allow
+    p, role:chaos-platform-monitoring, repositories, get, monitoring/*, allow
+    p, role:chaos-platform-monitoring, logs, get, monitoring/*, allow
+    
+    # Chaos engineering role
+    p, role:chaos-platform-chaos, applications, get, chaos-engineering/*, allow
+    p, role:chaos-platform-chaos, applications, sync, chaos-engineering/*, allow
+    p, role:chaos-platform-chaos, repositories, get, chaos-engineering/*, allow
+    p, role:chaos-platform-chaos, logs, get, chaos-engineering/*, allow
+    
+    # Groups and users
+    g, chaos-platform-admins, role:chaos-platform-admin
+    g, chaos-platform-developers, role:chaos-platform-developer
+    g, chaos-platform-viewers, role:chaos-platform-viewer
+    g, chaos-platform-monitoring, role:chaos-platform-monitoring
+    g, chaos-platform-chaos, role:chaos-platform-chaos
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-application-controller
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "persistentvolumeclaims", "events", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["keda.sh"]
+    resources: ["scaledobjects"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosengines", "chaosexperiments"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors", "prometheusrules"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-application-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-application-controller
+subjects:
+  - kind: ServiceAccount
+    name: argocd-application-controller
+    namespace: gitops
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-server
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "persistentvolumeclaims", "events", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["keda.sh"]
+    resources: ["scaledobjects"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["litmuschaos.io"]
+    resources: ["chaosengines", "chaosexperiments"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors", "prometheusrules"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-server
+subjects:
+  - kind: ServiceAccount
+    name: argocd-server
+    namespace: gitops 

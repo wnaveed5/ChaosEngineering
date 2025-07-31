@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: autoscaling-config
+  namespace: gitops
+  labels:
+    app: autoscaling
+    environment: production
+    project: chaos-engineering
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/chaos-engineering-platform
+    targetRevision: HEAD
+    path: kubernetes/autoscaling
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chaos-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+  revisionHistoryLimit: 10
+  # Health checks for autoscaling
+  health:
+    status: Healthy
+    message: "Autoscaling configuration is healthy"
+  # Sync status
+  sync:
+    status: Synced
+    revision: HEAD
+    resources:
+      - kind: HorizontalPodAutoscaler
+        name: frontend-hpa
+        status: Synced
+      - kind: HorizontalPodAutoscaler
+        name: api-gateway-hpa
+        status: Synced
+      - kind: HorizontalPodAutoscaler
+        name: user-service-hpa
+        status: Synced
+      - kind: ScaledObject
+        name: redis-scaledobject
+        status: Synced
+      - kind: ScaledObject
+        name: prometheus-scaledobject
+        status: Synced
+      - kind: ScaledObject
+        name: cpu-scaledobject
+        status: Synced
+      - kind: ScaledObject
+        name: memory-scaledobject
+        status: Synced 

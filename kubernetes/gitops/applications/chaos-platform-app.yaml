@@ -1,0 +1,63 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chaos-platform
+  namespace: gitops
+  labels:
+    app: chaos-platform
+    environment: production
+    project: chaos-engineering
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/chaos-engineering-platform
+    targetRevision: HEAD
+    path: kubernetes/applications
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chaos-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+  revisionHistoryLimit: 10
+  # Health checks for the application
+  health:
+    status: Healthy
+    message: "Application is healthy"
+  # Sync status
+  sync:
+    status: Synced
+    revision: HEAD
+    resources:
+      - kind: Deployment
+        name: frontend-service
+        status: Synced
+      - kind: Deployment
+        name: api-gateway-service
+        status: Synced
+      - kind: Deployment
+        name: user-service
+        status: Synced
+      - kind: Service
+        name: frontend-service
+        status: Synced
+      - kind: Service
+        name: api-gateway-service
+        status: Synced
+      - kind: Service
+        name: user-service
+        status: Synced
+      - kind: HorizontalPodAutoscaler
+        name: frontend-hpa
+        status: Synced
+      - kind: HorizontalPodAutoscaler
+        name: api-gateway-hpa
+        status: Synced
+      - kind: HorizontalPodAutoscaler
+        name: user-service-hpa
+        status: Synced 

@@ -1,0 +1,31 @@
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: cpu-chaos
+  namespace: chaos-engineering
+spec:
+  appinfo:
+    appns: chaos-platform
+    applabel: 'app=order-service'
+    appkind: deployment
+  chaosServiceAccount: litmus-admin
+  monitoring: true
+  jobCleanUpPolicy: 'retain'
+  annotationCheck: 'false'
+  engineState: 'active'
+  chaosInterval: '2m'
+  totalChaosDuration: '5m'
+  rampTime: '1m'
+  experiments:
+    - name: cpu-chaos
+      spec:
+        components:
+          env:
+            - name: CPU_CORES
+              value: '2'
+            - name: CPU_LOAD
+              value: '80'
+            - name: TOTAL_CHAOS_DURATION
+              value: '120'
+            - name: CHAOS_INTERVAL
+              value: '30' 

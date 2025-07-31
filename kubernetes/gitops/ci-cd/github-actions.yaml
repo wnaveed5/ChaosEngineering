@@ -1,0 +1,274 @@
+name: Chaos Platform CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'microservices/**'
+      - 'kubernetes/**'
+      - 'observability/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'microservices/**'
+      - 'kubernetes/**'
+      - 'observability/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Build and test microservices
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [frontend, api-gateway, user-service]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: microservices/${{ matrix.service }}/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          cd microservices/${{ matrix.service }}
+          npm ci
+      
+      - name: Run tests
+        run: |
+          cd microservices/${{ matrix.service }}
+          npm test
+      
+      - name: Build Docker image
+        run: |
+          cd microservices/${{ matrix.service }}
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:${{ github.sha }} .
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:latest .
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Push Docker images
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:latest
+
+  # Kubernetes manifest validation
+  validate-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Validate Kubernetes manifests
+        run: |
+          # Validate base manifests
+          kubectl apply --dry-run=client -f kubernetes/base/
+          
+          # Validate monitoring manifests
+          kubectl apply --dry-run=client -f kubernetes/monitoring/
+          
+          # Validate chaos engineering manifests
+          kubectl apply --dry-run=client -f kubernetes/chaos/
+          
+          # Validate autoscaling manifests
+          kubectl apply --dry-run=client -f kubernetes/autoscaling/
+      
+      - name: Validate ArgoCD applications
+        run: |
+          kubectl apply --dry-run=client -f kubernetes/gitops/applications/
+          kubectl apply --dry-run=client -f kubernetes/gitops/projects/
+
+  # Deploy to staging
+  deploy-staging:
+    needs: [build-test, validate-manifests]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name chaos-platform-staging --region us-west-2
+      
+      - name: Deploy to staging
+        run: |
+          # Update image tags in manifests
+          find kubernetes/ -name "*.yaml" -exec sed -i "s|IMAGE_TAG|${{ github.sha }}|g" {} \;
+          
+          # Apply manifests
+          kubectl apply -f kubernetes/base/
+          kubectl apply -f kubernetes/monitoring/
+          kubectl apply -f kubernetes/autoscaling/
+          
+          # Wait for deployments
+          kubectl rollout status deployment/frontend-service -n chaos-platform --timeout=300s
+          kubectl rollout status deployment/api-gateway-service -n chaos-platform --timeout=300s
+          kubectl rollout status deployment/user-service -n chaos-platform --timeout=300s
+      
+      - name: Run smoke tests
+        run: |
+          # Wait for services to be ready
+          kubectl wait --for=condition=ready pod -l app=frontend-service -n chaos-platform --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=api-gateway-service -n chaos-platform --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=user-service -n chaos-platform --timeout=300s
+          
+          # Run basic health checks
+          kubectl port-forward svc/frontend-service 3000:3000 -n chaos-platform &
+          sleep 10
+          curl -f http://localhost:3000/health || exit 1
+
+  # Deploy to production
+  deploy-production:
+    needs: [build-test, validate-manifests]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name chaos-platform-production --region us-west-2
+      
+      - name: Deploy to production
+        run: |
+          # Update image tags in manifests
+          find kubernetes/ -name "*.yaml" -exec sed -i "s|IMAGE_TAG|${{ github.sha }}|g" {} \;
+          
+          # Apply manifests
+          kubectl apply -f kubernetes/base/
+          kubectl apply -f kubernetes/monitoring/
+          kubectl apply -f kubernetes/autoscaling/
+          
+          # Wait for deployments
+          kubectl rollout status deployment/frontend-service -n chaos-platform --timeout=300s
+          kubectl rollout status deployment/api-gateway-service -n chaos-platform --timeout=300s
+          kubectl rollout status deployment/user-service -n chaos-platform --timeout=300s
+      
+      - name: Run production tests
+        run: |
+          # Wait for services to be ready
+          kubectl wait --for=condition=ready pod -l app=frontend-service -n chaos-platform --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=api-gateway-service -n chaos-platform --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=user-service -n chaos-platform --timeout=300s
+          
+          # Run comprehensive health checks
+          kubectl port-forward svc/frontend-service 3000:3000 -n chaos-platform &
+          sleep 10
+          curl -f http://localhost:3000/health || exit 1
+          
+          # Check SLO/SLI metrics
+          kubectl port-forward svc/prometheus 9090:9090 -n monitoring &
+          sleep 10
+          curl -f "http://localhost:9090/api/v1/query?query=slo:availability:ratio" || exit 1
+
+  # Chaos testing (only in production)
+  chaos-testing:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name chaos-platform-production --region us-west-2
+      
+      - name: Run chaos experiments
+        run: |
+          # Apply chaos experiments
+          kubectl apply -f kubernetes/chaos/pod-kill-experiment.yaml
+          kubectl apply -f kubernetes/chaos/network-chaos-experiment.yaml
+          
+          # Wait for experiments to complete
+          sleep 300
+          
+          # Check recovery metrics
+          kubectl port-forward svc/prometheus 9090:9090 -n monitoring &
+          sleep 10
+          curl -f "http://localhost:9090/api/v1/query?query=slo:recovery_time:ratio" || exit 1
+
+  # Notify deployment status
+  notify:
+    needs: [deploy-production, chaos-testing]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#chaos-platform'
+          text: |
+            Deployment Status: ${{ job.status }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Environment: Production
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 

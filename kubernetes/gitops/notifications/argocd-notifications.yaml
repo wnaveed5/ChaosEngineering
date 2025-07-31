@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: gitops
+data:
+  # Slack notification template
+  template.slack-app-sync-succeeded: |
+    {
+      "attachments": [{
+        "title": "{{.app.metadata.name}}",
+        "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+        "color": "good",
+        "fields": [{
+          "title": "Sync Status",
+          "value": "Succeeded",
+          "short": true
+        }, {
+          "title": "Repository",
+          "value": "{{.app.spec.source.repoURL}}",
+          "short": true
+        }, {
+          "title": "Revision",
+          "value": "{{.app.status.sync.revision}}",
+          "short": true
+        }]
+      }]
+    }
+  
+  template.slack-app-sync-failed: |
+    {
+      "attachments": [{
+        "title": "{{.app.metadata.name}}",
+        "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+        "color": "danger",
+        "fields": [{
+          "title": "Sync Status",
+          "value": "Failed",
+          "short": true
+        }, {
+          "title": "Repository",
+          "value": "{{.app.spec.source.repoURL}}",
+          "short": true
+        }, {
+          "title": "Revision",
+          "value": "{{.app.status.sync.revision}}",
+          "short": true
+        }, {
+          "title": "Error",
+          "value": "{{.app.status.conditions}}",
+          "short": false
+        }]
+      }]
+    }
+  
+  template.slack-app-health-degraded: |
+    {
+      "attachments": [{
+        "title": "{{.app.metadata.name}}",
+        "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+        "color": "warning",
+        "fields": [{
+          "title": "Health Status",
+          "value": "Degraded",
+          "short": true
+        }, {
+          "title": "Namespace",
+          "value": "{{.app.spec.destination.namespace}}",
+          "short": true
+        }, {
+          "title": "Message",
+          "value": "{{.app.status.health.message}}",
+          "short": false
+        }]
+      }]
+    }
+  
+  # Email notification template
+  template.email-app-sync-succeeded: |
+    Subject: [ArgoCD] Application {{.app.metadata.name}} sync succeeded
+    
+    Application: {{.app.metadata.name}}
+    Status: Succeeded
+    Repository: {{.app.spec.source.repoURL}}
+    Revision: {{.app.status.sync.revision}}
+    Namespace: {{.app.spec.destination.namespace}}
+    
+    View application: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}
+  
+  template.email-app-sync-failed: |
+    Subject: [ArgoCD] Application {{.app.metadata.name}} sync failed
+    
+    Application: {{.app.metadata.name}}
+    Status: Failed
+    Repository: {{.app.spec.source.repoURL}}
+    Revision: {{.app.status.sync.revision}}
+    Namespace: {{.app.spec.destination.namespace}}
+    Error: {{.app.status.conditions}}
+    
+    View application: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}
+  
+  # Webhook notification template
+  template.webhook-app-sync-succeeded: |
+    {
+      "application": "{{.app.metadata.name}}",
+      "status": "succeeded",
+      "repository": "{{.app.spec.source.repoURL}}",
+      "revision": "{{.app.status.sync.revision}}",
+      "namespace": "{{.app.spec.destination.namespace}}",
+      "url": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}"
+    }
+  
+  template.webhook-app-sync-failed: |
+    {
+      "application": "{{.app.metadata.name}}",
+      "status": "failed",
+      "repository": "{{.app.spec.source.repoURL}}",
+      "revision": "{{.app.status.sync.revision}}",
+      "namespace": "{{.app.spec.destination.namespace}}",
+      "error": "{{.app.status.conditions}}",
+      "url": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}"
+    }
+  
+  # Service configuration
+  service.slack: |
+    token: $slack-token
+    channel: chaos-platform-alerts
+  
+  service.email: |
+    host: smtp.gmail.com
+    port: 587
+    username: $email-username
+    password: $email-password
+    from: argocd@chaos-platform.local
+  
+  service.webhook: |
+    url: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+    headers:
+      Content-Type: application/json
+  
+  # Triggers
+  trigger.on-sync-succeeded: |
+    - when: app.status.operationState.phase in ['Succeeded']
+      send: [slack-app-sync-succeeded, email-app-sync-succeeded, webhook-app-sync-succeeded]
+  
+  trigger.on-sync-failed: |
+    - when: app.status.operationState.phase in ['Failed', 'Error']
+      send: [slack-app-sync-failed, email-app-sync-failed, webhook-app-sync-failed]
+  
+  trigger.on-health-degraded: |
+    - when: app.status.health.status == 'Degraded'
+      send: [slack-app-health-degraded, email-app-health-degraded]
+  
+  trigger.on-app-created: |
+    - when: app.metadata.creationTimestamp
+      send: [slack-app-created, email-app-created]
+  
+  trigger.on-app-deleted: |
+    - when: app.metadata.deletionTimestamp
+      send: [slack-app-deleted, email-app-deleted] 

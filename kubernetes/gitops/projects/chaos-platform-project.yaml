@@ -1,0 +1,125 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: chaos-platform
+  namespace: gitops
+  labels:
+    project: chaos-engineering
+spec:
+  description: Chaos Engineering Platform Project
+  
+  # Source repositories
+  sourceRepos:
+    - https://github.com/your-org/chaos-engineering-platform
+    - https://github.com/your-org/chaos-platform-config
+  
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: chaos-platform
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+    - namespace: chaos-engineering
+      server: https://kubernetes.default.svc
+    - namespace: gitops
+      server: https://kubernetes.default.svc
+  
+  # Allowed cluster resources
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRole
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRoleBinding
+    - group: "autoscaling"
+      kind: HorizontalPodAutoscaler
+    - group: "keda.sh"
+      kind: ScaledObject
+  
+  # Allowed namespace resources
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: "apps"
+      kind: Deployment
+    - group: "apps"
+      kind: StatefulSet
+    - group: "autoscaling"
+      kind: HorizontalPodAutoscaler
+    - group: "keda.sh"
+      kind: ScaledObject
+    - group: "litmuschaos.io"
+      kind: ChaosEngine
+    - group: "litmuschaos.io"
+      kind: ChaosExperiment
+    - group: "monitoring.coreos.com"
+      kind: ServiceMonitor
+    - group: "monitoring.coreos.com"
+      kind: PrometheusRule
+    - group: "networking.k8s.io"
+      kind: NetworkPolicy
+    - group: "networking.k8s.io"
+      kind: Ingress
+  
+  # Allowed source types
+  sourceNamespaces:
+    - chaos-platform
+    - monitoring
+    - chaos-engineering
+    - gitops
+  
+  # Roles for access control
+  roles:
+    - name: admin
+      description: Admin role for chaos platform
+      policies:
+        - p, proj:chaos-platform:admin, applications, *, chaos-platform/*, allow
+        - p, proj:chaos-platform:admin, repositories, *, chaos-platform/*, allow
+        - p, proj:chaos-platform:admin, clusters, *, chaos-platform/*, allow
+      groups:
+        - chaos-platform-admins
+    
+    - name: developer
+      description: Developer role for chaos platform
+      policies:
+        - p, proj:chaos-platform:developer, applications, get, chaos-platform/*, allow
+        - p, proj:chaos-platform:developer, applications, sync, chaos-platform/*, allow
+        - p, proj:chaos-platform:developer, repositories, get, chaos-platform/*, allow
+      groups:
+        - chaos-platform-developers
+    
+    - name: viewer
+      description: Viewer role for chaos platform
+      policies:
+        - p, proj:chaos-platform:viewer, applications, get, chaos-platform/*, allow
+        - p, proj:chaos-platform:viewer, repositories, get, chaos-platform/*, allow
+      groups:
+        - chaos-platform-viewers
+  
+  # Sync windows for controlled deployments
+  syncWindows:
+    - name: allow-sync
+      schedule: "0 0 * * *"
+      duration: 24h
+      applications:
+        - chaos-platform
+        - monitoring-stack
+        - chaos-engineering
+        - autoscaling-config
+        - slo-sli-monitoring
+      namespaces:
+        - chaos-platform
+        - monitoring
+        - chaos-engineering
+        - gitops
+      manualSync: true
+      timeZone: "UTC" 

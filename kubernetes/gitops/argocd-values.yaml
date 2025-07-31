@@ -1,0 +1,165 @@
+# ArgoCD Helm Values Configuration
+global:
+  image:
+    repository: argoproj/argocd
+    tag: v2.8.4
+
+server:
+  # ArgoCD Server Configuration
+  replicas: 2
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  
+  # Ingress Configuration
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - argocd.chaos-platform.local
+    tls:
+      - secretName: argocd-server-tls
+        hosts:
+          - argocd.chaos-platform.local
+  
+  # Security Configuration
+  extraArgs:
+    - --insecure
+    - --rootpath
+    - /
+  
+  # RBAC Configuration
+  rbac:
+    create: true
+    pspEnabled: false
+  
+  # Service Configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+
+repoServer:
+  # Repository Server Configuration
+  replicas: 2
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+applicationSet:
+  # ApplicationSet Controller Configuration
+  enabled: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+redis:
+  # Redis Configuration for ArgoCD
+  enabled: true
+  auth:
+    enabled: false
+  architecture: standalone
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+redis-ha:
+  # Redis HA Configuration
+  enabled: false
+
+dex:
+  # Dex Configuration for SSO
+  enabled: false
+
+notifications:
+  # Notifications Configuration
+  enabled: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# High Availability Configuration
+controller:
+  replicas: 2
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8082"
+
+# HAProxy Configuration
+haproxy:
+  enabled: false
+
+# Backup Configuration
+backup:
+  enabled: true
+  cronjob:
+    schedule: "0 2 * * *"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Network Policies
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: chaos-platform
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: chaos-platform
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system 

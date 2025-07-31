@@ -1,0 +1,149 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: chaos-platform-slo
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: chaos-platform
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-rules
+  namespace: monitoring
+spec:
+  groups:
+    - name: slo.rules
+      rules:
+        # Availability SLO (99.9%)
+        - record: slo:availability:ratio
+          expr: |
+            sum(rate(http_requests_total{status_code=~"2.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+        
+        - record: slo:availability:target
+          expr: 0.999
+        
+        - record: slo:availability:error_budget
+          expr: 1 - slo:availability:target
+        
+        - record: slo:availability:error_budget_remaining
+          expr: slo:availability:error_budget - (1 - slo:availability:ratio)
+        
+        - record: slo:availability:error_budget_consumed
+          expr: (1 - slo:availability:ratio) / slo:availability:error_budget
+        
+        # Latency SLO (95th percentile < 200ms)
+        - record: slo:latency:ratio
+          expr: |
+            sum(rate(http_request_duration_seconds_bucket{le="0.2"}[5m]))
+            /
+            sum(rate(http_request_duration_seconds_count[5m]))
+        
+        - record: slo:latency:target
+          expr: 0.95
+        
+        - record: slo:latency:error_budget
+          expr: 1 - slo:latency:target
+        
+        - record: slo:latency:error_budget_remaining
+          expr: slo:latency:error_budget - (1 - slo:latency:ratio)
+        
+        - record: slo:latency:error_budget_consumed
+          expr: (1 - slo:latency:ratio) / slo:latency:error_budget
+        
+        # Error Rate SLO (< 0.1%)
+        - record: slo:error_rate:ratio
+          expr: |
+            sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+        
+        - record: slo:error_rate:target
+          expr: 0.001
+        
+        - record: slo:error_rate:error_budget
+          expr: slo:error_rate:target
+        
+        - record: slo:error_rate:error_budget_remaining
+          expr: slo:error_rate:error_budget - slo:error_rate:ratio
+        
+        - record: slo:error_rate:error_budget_consumed
+          expr: slo:error_rate:ratio / slo:error_rate:error_budget
+        
+        # Recovery Time SLO (< 5 minutes)
+        - record: slo:recovery_time:ratio
+          expr: |
+            histogram_quantile(0.95, rate(chaos_recovery_duration_seconds_bucket[5m]))
+        
+        - record: slo:recovery_time:target
+          expr: 300
+        
+        - record: slo:recovery_time:error_budget
+          expr: slo:recovery_time:target
+        
+        - record: slo:recovery_time:error_budget_remaining
+          expr: slo:recovery_time:error_budget - slo:recovery_time:ratio
+        
+        - record: slo:recovery_time:error_budget_consumed
+          expr: slo:recovery_time:ratio / slo:recovery_time:error_budget
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: slo.alerts
+      rules:
+        # Error Budget Burn Rate Alerts
+        - alert: ErrorBudgetBurnRateHigh
+          expr: |
+            (
+              slo:availability:error_budget_consumed > 0.1
+            ) or (
+              slo:latency:error_budget_consumed > 0.1
+            ) or (
+              slo:error_rate:error_budget_consumed > 0.1
+            )
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Error budget burn rate is high"
+            description: "Error budget is being consumed faster than expected"
+        
+        # Error Budget Exhaustion Alerts
+        - alert: ErrorBudgetExhausted
+          expr: |
+            (
+              slo:availability:error_budget_remaining <= 0
+            ) or (
+              slo:latency:error_budget_remaining <= 0
+            ) or (
+              slo:error_rate:error_budget_remaining <= 0
+            )
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Error budget exhausted"
+            description: "SLO error budget has been completely consumed"
+        
+        # Recovery Time Violation
+        - alert: RecoveryTimeViolation
+          expr: slo:recovery_time:ratio > slo:recovery_time:target
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Recovery time SLO violation"
+            description: "Recovery time exceeds 5-minute SLO target" 

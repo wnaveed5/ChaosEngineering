@@ -1,0 +1,33 @@
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: network-chaos
+  namespace: chaos-engineering
+spec:
+  appinfo:
+    appns: chaos-platform
+    applabel: 'app=api-gateway'
+    appkind: deployment
+  chaosServiceAccount: litmus-admin
+  monitoring: true
+  jobCleanUpPolicy: 'retain'
+  annotationCheck: 'false'
+  engineState: 'active'
+  chaosInterval: '2m'
+  totalChaosDuration: '5m'
+  rampTime: '1m'
+  experiments:
+    - name: network-chaos
+      spec:
+        components:
+          env:
+            - name: NETWORK_INTERFACE
+              value: 'eth0'
+            - name: NETWORK_PACKET_LOSS_PERCENTAGE
+              value: '10'
+            - name: NETWORK_LATENCY
+              value: '100'
+            - name: TOTAL_CHAOS_DURATION
+              value: '120'
+            - name: CHAOS_INTERVAL
+              value: '30' 

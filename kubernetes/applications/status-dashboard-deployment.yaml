@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: status-dashboard
+  namespace: chaos-platform
+  labels:
+    app: status-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: status-dashboard
+  template:
+    metadata:
+      labels:
+        app: status-dashboard
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: dashboard-config
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: dashboard-config
+        configMap:
+          name: custom-dashboard-config 

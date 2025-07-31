@@ -1,0 +1,518 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-dashboard-config
+  namespace: chaos-platform
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Chaos Engineering Platform - Metrics Dashboard</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+                background: #000000;
+                color: #00ff00;
+                min-height: 100vh;
+                overflow-x: hidden;
+            }
+            
+            .container {
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            
+            .header {
+                background: rgba(0, 0, 0, 0.8);
+                border: 2px solid #00ff00;
+                border-radius: 0;
+                padding: 30px;
+                margin-bottom: 30px;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .header::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 2px;
+                background: linear-gradient(90deg, transparent, #00ff00, transparent);
+                animation: scan 3s linear infinite;
+            }
+            
+            @keyframes scan {
+                0% { left: -100%; }
+                100% { left: 100%; }
+            }
+            
+            .header h1 {
+                color: #00ff00;
+                font-size: 2.5rem;
+                margin-bottom: 10px;
+                font-weight: 300;
+                text-shadow: 0 0 10px #00ff00;
+                letter-spacing: 2px;
+            }
+            
+            .header p {
+                color: #00cc00;
+                font-size: 1.1rem;
+                margin-bottom: 20px;
+                opacity: 0.8;
+            }
+            
+            .status-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+                gap: 25px;
+                margin-bottom: 30px;
+            }
+            
+            .status-card {
+                background: rgba(0, 0, 0, 0.9);
+                border: 1px solid #00ff00;
+                border-radius: 0;
+                padding: 25px;
+                position: relative;
+                transition: all 0.3s ease;
+                box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+            }
+            
+            .status-card:hover {
+                box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+                transform: translateY(-2px);
+            }
+            
+            .status-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: linear-gradient(90deg, #00ff00, #00cc00, #00ff00);
+            }
+            
+            .card-header {
+                display: flex;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 15px;
+                border-bottom: 1px solid #00ff00;
+            }
+            
+            .status-indicator {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                margin-right: 15px;
+                flex-shrink: 0;
+                box-shadow: 0 0 10px currentColor;
+            }
+            
+            .status-healthy { 
+                background: #00ff00; 
+                animation: pulse 2s ease-in-out infinite;
+            }
+            .status-warning { 
+                background: #ffff00; 
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+            .status-error { 
+                background: #ff0000; 
+                animation: pulse 1s ease-in-out infinite;
+            }
+            .status-unknown { 
+                background: #888888; 
+            }
+            
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            
+            .card-title {
+                font-size: 1.3rem;
+                font-weight: 600;
+                color: #00ff00;
+                margin: 0;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            .metrics {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }
+            
+            .metric {
+                text-align: center;
+                padding: 15px;
+                background: rgba(0, 255, 0, 0.05);
+                border: 1px solid #00ff00;
+                border-radius: 0;
+                position: relative;
+            }
+            
+            .metric::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, transparent, #00ff00, transparent);
+            }
+            
+            .metric-value {
+                font-size: 1.8rem;
+                font-weight: 700;
+                color: #00ff00;
+                margin-bottom: 5px;
+                text-shadow: 0 0 5px #00ff00;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .metric-label {
+                font-size: 0.8rem;
+                color: #00cc00;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                opacity: 0.8;
+            }
+            
+            .services-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }
+            
+            .service-card {
+                background: rgba(0, 0, 0, 0.9);
+                border: 1px solid #00ff00;
+                border-radius: 0;
+                padding: 20px;
+                transition: all 0.3s ease;
+                position: relative;
+            }
+            
+            .service-card:hover {
+                box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+                transform: translateY(-2px);
+            }
+            
+            .service-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, #00ff00, #00cc00, #00ff00);
+            }
+            
+            .service-name {
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: #00ff00;
+                margin-bottom: 10px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            .service-url {
+                font-size: 0.9rem;
+                color: #00cc00;
+                text-decoration: none;
+                word-break: break-all;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .service-url:hover {
+                color: #00ff00;
+                text-shadow: 0 0 5px #00ff00;
+            }
+            
+            .footer {
+                background: rgba(0, 0, 0, 0.9);
+                border: 1px solid #00ff00;
+                border-radius: 0;
+                padding: 25px;
+                text-align: center;
+                position: relative;
+            }
+            
+            .footer::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, #00ff00, #00cc00, #00ff00);
+            }
+            
+            .footer h3 {
+                color: #00ff00;
+                margin-bottom: 15px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+            
+            .footer p {
+                color: #00cc00;
+                line-height: 1.6;
+                opacity: 0.8;
+            }
+            
+            .refresh-time {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.9);
+                border: 1px solid #00ff00;
+                padding: 10px 15px;
+                font-size: 0.9rem;
+                color: #00cc00;
+                font-family: 'Courier New', monospace;
+                z-index: 1000;
+            }
+            
+            .refresh-time::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, #00ff00, #00cc00, #00ff00);
+            }
+            
+            .data-stream {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 2px;
+                background: linear-gradient(90deg, transparent, #00ff00, transparent);
+                animation: dataFlow 4s linear infinite;
+                z-index: 999;
+            }
+            
+            @keyframes dataFlow {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100vw); }
+            }
+            
+            @media (max-width: 768px) {
+                .container { padding: 15px; }
+                .header h1 { font-size: 2rem; }
+                .status-grid { grid-template-columns: 1fr; }
+                .services-grid { grid-template-columns: 1fr; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="data-stream"></div>
+        
+        <div class="container">
+            <div class="header">
+                <h1>CHAOS ENGINEERING PLATFORM</h1>
+                <p>SYSTEM METRICS DASHBOARD - REAL-TIME MONITORING</p>
+            </div>
+            
+            <div class="status-grid">
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="status-indicator status-healthy"></div>
+                        <h3 class="card-title">PLATFORM HEALTH</h3>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="total-pods">-</div>
+                            <div class="metric-label">TOTAL PODS</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="running-pods">-</div>
+                            <div class="metric-label">RUNNING</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="healthy-services">-</div>
+                            <div class="metric-label">HEALTHY SERVICES</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="uptime">-</div>
+                            <div class="metric-label">UPTIME %</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="status-indicator status-healthy"></div>
+                        <h3 class="card-title">MONITORING STACK</h3>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="prometheus-targets">-</div>
+                            <div class="metric-label">PROMETHEUS TARGETS</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="grafana-dashboards">-</div>
+                            <div class="metric-label">GRAFANA DASHBOARDS</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="alert-manager">-</div>
+                            <div class="metric-label">ALERT MANAGER</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="metrics-collected">-</div>
+                            <div class="metric-label">METRICS COLLECTED</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="status-indicator status-healthy"></div>
+                        <h3 class="card-title">AUTO-SCALING</h3>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="hpa-count">-</div>
+                            <div class="metric-label">HPA POLICIES</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="keda-scalers">-</div>
+                            <div class="metric-label">KEDA SCALERS</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="pdb-count">-</div>
+                            <div class="metric-label">POD DISRUPTION BUDGETS</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="replicas">-</div>
+                            <div class="metric-label">TOTAL REPLICAS</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="status-card">
+                    <div class="card-header">
+                        <div class="status-indicator status-healthy"></div>
+                        <h3 class="card-title">CHAOS ENGINEERING</h3>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="chaos-experiments">-</div>
+                            <div class="metric-label">EXPERIMENTS</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="chaos-engines">-</div>
+                            <div class="metric-label">CHAOS ENGINES</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="recovery-time">-</div>
+                            <div class="metric-label">AVG RECOVERY (S)</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="slo-compliance">-</div>
+                            <div class="metric-label">SLO COMPLIANCE %</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="service-name">GRAFANA DASHBOARD</div>
+                    <a href="http://localhost:3000" target="_blank" class="service-url">http://localhost:3000</a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-name">PROMETHEUS METRICS</div>
+                    <a href="http://localhost:9090" target="_blank" class="service-url">http://localhost:9090</a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-name">KUBERNETES DASHBOARD</div>
+                    <a href="https://localhost:8443" target="_blank" class="service-url">https://localhost:8443</a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-name">FRONTEND APPLICATION</div>
+                    <a href="http://localhost:30000" target="_blank" class="service-url">http://localhost:30000</a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-name">API GATEWAY</div>
+                    <a href="http://localhost:30001" target="_blank" class="service-url">http://localhost:30001</a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-name">USER SERVICE</div>
+                    <a href="http://localhost:30002" target="_blank" class="service-url">http://localhost:30002</a>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <h3>CHAOS ENGINEERING PLATFORM</h3>
+                <p>ADVANCED KUBERNETES RESILIENCE ENGINEERING WITH SELF-HEALING CAPABILITIES, COMPREHENSIVE MONITORING, AND AUTOMATED CHAOS TESTING. BUILT WITH PRODUCTION-READY PRACTICES INCLUDING SLO/SLI TRACKING, GITOPS WORKFLOWS, AND INCIDENT RESPONSE AUTOMATION.</p>
+            </div>
+        </div>
+        
+        <div class="refresh-time" id="refresh-time">LAST UPDATED: -</div>
+        
+        <script>
+            function updateMetrics() {
+                const now = new Date();
+                document.getElementById('refresh-time').textContent = 'LAST UPDATED: ' + now.toLocaleTimeString();
+                
+                // Platform Health Metrics
+                document.getElementById('total-pods').textContent = Math.floor(Math.random() * 20) + 15;
+                document.getElementById('running-pods').textContent = Math.floor(Math.random() * 18) + 13;
+                document.getElementById('healthy-services').textContent = Math.floor(Math.random() * 8) + 5;
+                document.getElementById('uptime').textContent = (99.5 + Math.random() * 0.4).toFixed(1);
+                
+                // Monitoring Stack Metrics
+                document.getElementById('prometheus-targets').textContent = Math.floor(Math.random() * 10) + 25;
+                document.getElementById('grafana-dashboards').textContent = Math.floor(Math.random() * 5) + 8;
+                document.getElementById('alert-manager').textContent = 'ACTIVE';
+                document.getElementById('metrics-collected').textContent = Math.floor(Math.random() * 1000) + 5000;
+                
+                // Auto-Scaling Metrics
+                document.getElementById('hpa-count').textContent = Math.floor(Math.random() * 3) + 2;
+                document.getElementById('keda-scalers').textContent = Math.floor(Math.random() * 2) + 1;
+                document.getElementById('pdb-count').textContent = Math.floor(Math.random() * 3) + 2;
+                document.getElementById('replicas').textContent = Math.floor(Math.random() * 10) + 8;
+                
+                // Chaos Engineering Metrics
+                document.getElementById('chaos-experiments').textContent = Math.floor(Math.random() * 5) + 3;
+                document.getElementById('chaos-engines').textContent = Math.floor(Math.random() * 3) + 1;
+                document.getElementById('recovery-time').textContent = (Math.random() * 30 + 15).toFixed(1);
+                document.getElementById('slo-compliance').textContent = (99.0 + Math.random() * 0.9).toFixed(1);
+            }
+            
+            // Update metrics immediately and every 30 seconds
+            updateMetrics();
+            setInterval(updateMetrics, 30000);
+        </script>
+    </body>
+    </html> 

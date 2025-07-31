@@ -1,0 +1,77 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: redis-scaledobject
+  namespace: chaos-platform
+spec:
+  scaleTargetRef:
+    name: redis-deployment
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+    - type: redis
+      metadata:
+        host: redis-service
+        port: "6379"
+        listName: "order-queue"
+        listLength: "10"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: prometheus-scaledobject
+  namespace: chaos-platform
+spec:
+  scaleTargetRef:
+    name: notification-service
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 15
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-service:9090
+        metricName: http_requests_total
+        query: rate(http_requests_total{service="notification-service"}[2m])
+        threshold: "100"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cpu-scaledobject
+  namespace: chaos-platform
+spec:
+  scaleTargetRef:
+    name: order-service
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 3
+  maxReplicaCount: 20
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        type: Utilization
+        value: "70"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: memory-scaledobject
+  namespace: chaos-platform
+spec:
+  scaleTargetRef:
+    name: user-service
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 3
+  maxReplicaCount: 20
+  triggers:
+    - type: memory
+      metricType: Utilization
+      metadata:
+        type: Utilization
+        value: "80" 

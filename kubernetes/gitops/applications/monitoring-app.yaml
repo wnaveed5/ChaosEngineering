@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-stack
+  namespace: gitops
+  labels:
+    app: monitoring
+    environment: production
+    project: chaos-engineering
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/chaos-engineering-platform
+    targetRevision: HEAD
+    path: kubernetes/monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+  revisionHistoryLimit: 10
+  # Health checks for the monitoring stack
+  health:
+    status: Healthy
+    message: "Monitoring stack is healthy"
+  # Sync status
+  sync:
+    status: Synced
+    revision: HEAD
+    resources:
+      - kind: ConfigMap
+        name: prometheus-config
+        status: Synced
+      - kind: Service
+        name: prometheus-service
+        status: Synced
+      - kind: Service
+        name: grafana-service
+        status: Synced
+      - kind: Service
+        name: alertmanager-service
+        status: Synced
+      - kind: Service
+        name: node-exporter-service
+        status: Synced
+      - kind: Service
+        name: kube-state-metrics-service
+        status: Synced 
