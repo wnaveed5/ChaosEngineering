@@ -517,7 +517,8 @@ kubectl port-forward svc/status-dashboard 3001:80 -n chaos-platform &
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
+3. Make your changes<img width="1470" height="696" alt="Screenshot 2025-07-31 at 3 04 50 PM" src="https://github.com/user-attachments/assets/072d07f4-da46-4ec5-b8c3-7fb224aad49c" />
+
 4. Add tests
 5. Submit a pull request
 
@@ -531,4 +532,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Prometheus and Grafana teams for observability tools
 - LitmusChaos for chaos engineering framework
 - ArgoCD for GitOps implementation
+
+<img width="1470" height="696" alt="Screenshot 2025-07-31 at 3 04 50 PM" src="https://github.com/user-attachments/assets/5491a5b0-8c81-4d4c-a756-d7e8af0e6a42" />
+
+<img width="1470" height="635" alt="Screenshot 2025-07-31 at 3 02 44 PM" src="https://github.com/user-attachments/assets/d7275af3-1437-4b71-b721-dd5e5e8926f3" />
+
 
